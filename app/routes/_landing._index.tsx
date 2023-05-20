@@ -10,6 +10,7 @@ import {
 import { type V2_MetaFunction, json, type ActionArgs } from '@remix-run/node';
 import type { Tweet } from '@prisma/client';
 import { db } from '~/utils/db.server';
+import { getUserId } from '~/utils/session.server';
 
 let formDataSchema = z.object({
   tweet: z
@@ -29,7 +30,12 @@ export async function loader() {
 }
 
 export async function action({ request }: ActionArgs) {
+  let userId = await getUserId(request);
   let formData = await request.formData();
+
+  if (!userId) {
+    return null;
+  }
 
   if (request.method === 'DELETE') {
     let id = formData.get('id');
@@ -51,7 +57,7 @@ export async function action({ request }: ActionArgs) {
 
   await db.tweet.create({
     data: {
-      authorId: 1,
+      authorId: userId,
       text: result.data.tweet,
     },
   });
@@ -76,7 +82,14 @@ export default function Index() {
 
   return (
     <div>
-      <h1 className="mb-4 text-3xl font-medium">Home page</h1>
+      <Form
+        method="POST"
+        action="/logout"
+        className="flex items-center justify-between"
+      >
+        <h1 className="mb-4 text-3xl font-medium">Home page</h1>
+        <button type="submit">Logout</button>
+      </Form>
 
       <Form
         ref={formRef}
@@ -91,7 +104,7 @@ export default function Index() {
         />
         <button
           type="submit"
-          className="rounded-lg px-4 py-2 text-white transition-colors dark:bg-blue-700 dark:hover:bg-blue-600 dark:disabled:bg-opacity-50"
+          className="rounded-lg px-4 py-2 text-white transition-colors dark:bg-blue-700 dark:hover:bg-blue-600 dark:disabled:opacity-50"
           disabled={isSubmitting}
         >
           Tweet

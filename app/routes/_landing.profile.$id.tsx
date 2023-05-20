@@ -1,4 +1,4 @@
-import { json, type LoaderArgs } from '@remix-run/node';
+import { json, redirect, type LoaderArgs } from '@remix-run/node';
 import { useLoaderData } from '@remix-run/react';
 import { db } from '~/utils/db.server';
 
@@ -6,7 +6,7 @@ export async function loader({ params }: LoaderArgs) {
   let id = params.id;
 
   if (!id) {
-    throw new Error('No user ID provided');
+    return redirect('/');
   }
 
   let user = await db.user.findFirst({
