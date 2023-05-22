@@ -7,7 +7,12 @@ import {
   useLoaderData,
   useNavigation,
 } from '@remix-run/react';
-import { type V2_MetaFunction, json, type ActionArgs } from '@remix-run/node';
+import {
+  type V2_MetaFunction,
+  json,
+  type ActionArgs,
+  redirect,
+} from '@remix-run/node';
 import type { Tweet } from '@prisma/client';
 import { db } from '~/utils/db.server';
 import { getUserId } from '~/utils/session.server';
@@ -32,12 +37,13 @@ export async function loader() {
 export async function action({ request }: ActionArgs) {
   let userId = await getUserId(request);
   let formData = await request.formData();
+  let intent = formData.get('intent');
 
   if (!userId) {
-    return null;
+    throw redirect('/login');
   }
 
-  if (request.method === 'DELETE') {
+  if (intent === 'delete') {
     let id = formData.get('id');
 
     await db.tweet.delete({
@@ -72,7 +78,8 @@ export default function Index() {
   let navigation = useNavigation();
 
   let isSubmitting =
-    navigation.state === 'submitting' && navigation.formMethod === 'POST';
+    navigation.state === 'submitting' &&
+    navigation.formData.get('intent') === 'create';
 
   useEffect(() => {
     if (!isSubmitting) {
@@ -82,18 +89,11 @@ export default function Index() {
 
   return (
     <div>
-      <Form
-        method="POST"
-        action="/logout"
-        className="flex items-center justify-between"
-      >
-        <h1 className="mb-4 text-3xl font-medium">Home page</h1>
-        <button type="submit">Logout</button>
-      </Form>
+      <h1 className="mb-4 text-3xl font-medium">Home page</h1>
 
       <Form
         ref={formRef}
-        method="POST"
+        method="post"
         className="space-y-2 border-b pb-4 dark:border-gray-700"
       >
         <textarea
@@ -103,8 +103,10 @@ export default function Index() {
           className="w-full rounded-lg border px-4 py-2 outline-none dark:border-gray-600 dark:bg-gray-900 dark:text-white dark:focus:border-blue-500"
         />
         <button
+          name="intent"
+          value="create"
           type="submit"
-          className="rounded-lg px-4 py-2 text-white transition-colors dark:bg-blue-700 dark:hover:bg-blue-600 dark:disabled:opacity-50"
+          className="rounded-lg bg-blue-500 px-4 py-2 text-white transition-colors hover:bg-blue-600 dark:bg-blue-700 dark:disabled:opacity-50"
           disabled={isSubmitting}
         >
           Tweet
@@ -132,23 +134,21 @@ export default function Index() {
 
 function TweetItem({ tweet }: { tweet: Tweet }) {
   let fetcher = useFetcher();
-  let isDeleting = fetcher.formData?.get('id') === String(tweet.id);
+  let isDeleting =
+    fetcher.state === 'submitting' &&
+    fetcher.formData?.get('id') === String(tweet.id);
 
   return (
     <li hidden={isDeleting}>
       <fetcher.Form
-        method="DELETE"
+        method="post"
         key={tweet.id}
         className="flex justify-between rounded-lg p-2"
       >
         <input type="hidden" name="id" value={tweet.id} />
         <p>{tweet.text}</p>
-        <button
-          type="submit"
-          aria-label="Delete"
-          className="disabled:opacity-50"
-        >
-          ❌
+        <button type="submit" name="intent" value="delete" aria-label="Delete">
+          ⨉
         </button>
       </fetcher.Form>
     </li>
